@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=POMODORO
+Comment=Focus timer and session tasks
+Exec=pomodoro
+Icon=quiet-pomodoro
+Terminal=false
+Categories=Utility;
