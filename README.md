@@ -101,6 +101,14 @@ The Windows build requires Pango 1.56 or newer (included with current MSYS2 pack
 
 To reinstall after source changes, close Stash and run `install-windows.bat` again. The installer replaces the old Quiet Pomodoro shortcuts with Stash shortcuts. Saved tasks, preferences, and calendar history are kept separately in `%LOCALAPPDATA%\quiet-pomodoro\state.ini`.
 
+To refresh the Windows hourglass icon without rebuilding the app:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\refresh_windows_icon.ps1
+```
+
+This updates Stash shortcuts on the Desktop and Start Menu, updates any matching pinned shortcuts, and refreshes Explorer's cached icons.
+
 For a build with dependencies already installed, or to import existing settings only when Windows has no saved state:
 
 ```powershell
