@@ -21,9 +21,11 @@ int main() {
     prefs.sound = false;
     prefs.audioOutput = quiet::AudioOutput::Linux;
     prefs.completed = 3;
+    prefs.activity = {{"2024-02-29", 7200}, {quiet::today(), 4500}};
     std::string error;
     check(quiet::save(path, prefs, error), "save preferences");
     auto restored = quiet::load(path);
+    check(restored.activity == prefs.activity, "daily focus seconds survive restart");
     check(restored.minutes == prefs.minutes && !restored.sound && restored.completed == 3, "settings round trip");
     check(restored.audioOutput == quiet::AudioOutput::Linux, "audio output preference round trip");
     check(restored.tasks.size() == 2 && restored.tasks[0].text == prefs.tasks[0].text && restored.tasks[1].done,
@@ -35,9 +37,11 @@ int main() {
     restored = quiet::load(path);
     check(restored.completed == 0 && restored.tasks.size() == 2, "new day resets count and preserves tasks");
     check(restored.plan.finished == 2, "plan progress survives date rollover");
+    check(restored.activity == prefs.activity, "calendar history survives date rollover");
     const char* legacy = "[timer]\nfocus=25\n[tasks]\ncount=1\n[task-0]\ntext=Existing task\ndone=true\n";
     g_file_set_contents(path.c_str(), legacy, -1, nullptr);
     restored = quiet::load(path);
+    check(restored.activity.empty(), "legacy data starts with empty history instead of invented hours");
     check(restored.audioOutput == quiet::AudioOutput::Automatic, "old settings default to automatic audio output");
     check(restored.plan.target == 4 && restored.plan.finished == 0 && restored.tasks.size() == 1 &&
           restored.tasks[0].session == 1 && restored.tasks[0].done, "old data migrates to session one");
@@ -55,6 +59,12 @@ int main() {
     check(quiet::save(path, prefs, error), "save smaller plan");
     restored = quiet::load(path);
     check(restored.tasks[1].session == 3, "reducing target preserves future session tasks");
+    check(restored.activity == prefs.activity, "changing plan target preserves activity history");
+    const char* badActivity = "[activity]\n2026-02-30=100\n2024-02-29=3600\n2026-10-21=-30\n2026-10-22=abc\ninvalid=50\n2026-10-23=0\n";
+    g_file_set_contents(path.c_str(), badActivity, -1, nullptr);
+    restored = quiet::load(path);
+    check(restored.activity.size() == 1 && restored.activity.at("2024-02-29") == 3600,
+          "malformed history entries are ignored without losing valid days");
     check(!quiet::save(std::string(temp), prefs, error) && !error.empty(), "write failure reported");
     g_remove(path.c_str());
     g_rmdir(temp);

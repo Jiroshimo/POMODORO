@@ -40,6 +40,13 @@ Preferences load(const std::string& path) {
         prefs.plan.target = g_key_file_get_integer(file, "plan", "target", nullptr);
     prefs.plan.finished = g_key_file_get_integer(file, "plan", "finished", nullptr);
     prefs.plan.normalize();
+    gsize dayCount = 0;
+    gchar** days = g_key_file_get_keys(file, "activity", &dayCount, nullptr);
+    for (gsize i = 0; i < dayCount; ++i) {
+        const auto seconds = g_key_file_get_int64(file, "activity", days[i], nullptr);
+        if (validActivityDate(days[i]) && seconds > 0) prefs.activity[days[i]] = seconds;
+    }
+    g_strfreev(days);
     const int count = std::clamp(g_key_file_get_integer(file, "tasks", "count", nullptr), 0, 1000);
     for (int i = 0; i < count; ++i) {
         const auto group = "task-" + std::to_string(i);
@@ -67,6 +74,9 @@ bool save(const std::string& path, const Preferences& prefs, std::string& error)
     g_key_file_set_string(file, "timer", "date", prefs.date.c_str());
     g_key_file_set_integer(file, "plan", "target", prefs.plan.target);
     g_key_file_set_integer(file, "plan", "finished", prefs.plan.finished);
+    for (const auto& day : prefs.activity)
+        if (validActivityDate(day.first) && day.second > 0)
+            g_key_file_set_int64(file, "activity", day.first.c_str(), day.second);
     g_key_file_set_integer(file, "tasks", "count", static_cast<int>(prefs.tasks.size()));
     for (std::size_t i = 0; i < prefs.tasks.size(); ++i) {
         const auto group = "task-" + std::to_string(i);

@@ -6,4 +6,4 @@ if [[ -f /etc/debian_version ]] && command -v python3 >/dev/null; then
 fi
 cmake -S "$project_dir" -B "$project_dir/build" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$project_dir/build" --parallel
-exec "$project_dir/build/pomodoro" "$@"
+exec "$project_dir/build/stash" "$@"

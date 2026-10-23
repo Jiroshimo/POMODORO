@@ -1,8 +1,10 @@
 <div align="center">
 
-# POMODORO
+<img src="assets/stash.svg" alt="Stash black-and-white pixel hourglass" width="80" height="80">
 
-**A minimal desktop Pomodoro timer built with C++17 and GTK 3.**
+# Stash
+
+**A minimal desktop focus timer built with C++17 and GTK 3.**
 
 Focus on your work, organize tasks by session, and keep your timer visible while you study or code.
 
@@ -14,15 +16,15 @@ Focus on your work, organize tasks by session, and keep your timer visible while
 
 ## Overview
 
-POMODORO is a lightweight productivity app with a distraction-free black interface, a pixel-style countdown, and checklists for individual focus sessions. It combines a familiar Pomodoro cycle with a session plan so you can see not only _how long_ you're working, but also _what_ you're working on.
+Stash is a lightweight productivity app with a distraction-free black interface, a pixel-style countdown, Inter text, and checklists for individual focus sessions. An unlabeled contribution calendar keeps a daily history of your completed focus time.
 
 The app runs locally, automatically saves your plan, and does not require an account or a web service.
 
 ## Preview
 
-<!-- Add screenshots to docs/ after capturing them. The smoke test can create these files. -->
+<img src="docs/stash.png" alt="Stash with its pixel countdown, session tasks, and larger unlabeled contribution calendar" width="480">
 
-If screenshots are available in this repository, see [`docs/`](docs/). You can generate application screenshots using the desktop smoke test described under [Testing](#testing).
+You can generate updated screenshots using the desktop smoke test described under [Testing](#testing).
 
 ## Features
 
@@ -30,9 +32,13 @@ If screenshots are available in this repository, see [`docs/`](docs/). You can g
 - **Customizable plans:** Set 1–99 focus sessions and configure focus/break durations from 1–180 minutes.
 - **Per-session tasks:** Add, complete, uncheck, or delete tasks for each session. Browse other session lists without interrupting the running timer.
 - **Automatic transitions:** Once started, the timer progresses between focus and breaks until the plan is complete. Pause or reset whenever needed.
+- **Contribution calendar:** An unlabeled, Sunday-first grid shows 53 weeks with larger, denser squares in expanded and fullscreen views. Only completed focus sessions contribute time; brighter green squares mean more focus hours that day. Hover over a square to see its date and focus time.
+- **Pixel hourglass icon:** A black-and-white, 8-bit hourglass identifies Stash in your taskbar, shortcuts, and desktop launcher.
+- **Simple typography:** Bundled Inter uses medium weight for section labels and semibold for primary buttons and counts. Task text stays regular, with the original Silkscreen pixel font preserved for the countdown and app name.
+- **Minimal window controls:** Three small Apple-style circles handle close, minimize, and fullscreen. The fullscreen header shows only Settings.
 - **Multiple window modes:** Expanded, resizable, fullscreen, and a compact 360 × 360 floating panel (subject to desktop/window-manager support).
 - **Sound notifications:** A warning at 10 seconds remaining and a completion chime, with selectable Windows or Linux/WSLg output.
-- **Auto-save:** Stores your session progress, task lists, timing preferences, and audio settings across launches.
+- **Auto-save:** Stores your session progress, daily focus history, task lists, timing preferences, and audio settings across launches.
 - **Offline-friendly:** Core functionality is local, with no account, cloud sync, or continuous background service.
 
 ## Tech Stack
@@ -42,11 +48,11 @@ If screenshots are available in this repository, see [`docs/`](docs/). You can g
 | Language                 | C++17                                                   |
 | Desktop UI               | GTK 3                                                   |
 | Build system             | CMake 3.16+                                             |
-| Styling                  | CSS, bundled Silkscreen and DejaVu Sans Mono fonts       |
+| Styling                  | CSS, bundled Silkscreen and Inter fonts                  |
 | Audio                    | PulseAudio / ALSA (Linux), WinMM (Windows), WSL interop |
 | Supported source targets | Linux, WSLg, Windows via MSYS2                          |
 
-> **Platform note:** Linux and native Windows release builds have been verified. The Windows installation passed all five native automated tests and the desktop smoke test, including font selection, compact mode, resizing, and fullscreen. Windows accepted the test chime through WinMM; actual audibility depends on your speakers, headphones, and volume settings.
+> **Platform note:** Linux and native Windows use the same calendar, persistence, and bundled fonts. The Windows installer builds the app and runs its native automated tests; the verification script checks the installed desktop app, audio output, and shortcuts.
 
 ## Getting Started
 
@@ -80,7 +86,7 @@ Or compile it manually:
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-./build/pomodoro
+./build/stash
 ```
 
 A graphical Linux desktop or WSLg session is required to display the interface. The Linux launcher can also provision a local PulseAudio runtime if the system library is missing.
@@ -89,11 +95,11 @@ A graphical Linux desktop or WSLg session is required to display the interface. 
 
 Install [MSYS2](https://www.msys2.org/) at `C:\msys64`, then double-click **`install-windows.bat`** in this project. The installer updates MSYS2, installs the build dependencies, builds the Windows app, and runs its automated tests. Set `MSYS2_ROOT` first if MSYS2 is installed elsewhere.
 
-The app is installed for your Windows account at `%LOCALAPPDATA%\Programs\QuietPomodoro\pomodoro.exe`, with **Quiet Pomodoro** shortcuts on the Desktop and in the Start Menu. The shortcuts open the native `.exe` directly without a terminal. GTK and the required runtime DLLs are bundled beside the app; launching the installed app does not need WSL or MSYS2.
+The app is installed for your Windows account at `%LOCALAPPDATA%\Programs\Stash\stash.exe`, with **Stash** shortcuts on the Desktop and in the Start Menu. The shortcuts open the native `.exe` directly without a terminal. GTK and the required runtime DLLs are bundled beside the app; launching the installed app does not need WSL or MSYS2.
 
-The Windows build requires Pango 1.56 or newer (included with current MSYS2 packages). It loads the bundled Silkscreen timer font and DejaVu Sans Mono text font directly into Pango's font map, so GTK uses the same faces as WSL without installing fonts system-wide.
+The Windows build requires Pango 1.56 or newer (included with current MSYS2 packages). It loads the bundled Silkscreen timer font and Inter text font directly into Pango's font map, so GTK uses the same faces as WSL without installing fonts system-wide. Version **1.4.3** includes a simplified black-and-white pixel hourglass, a bolder contribution calendar, refined text weights, Apple-style window controls, and a Settings-only fullscreen header. The name and version are also embedded in the Windows executable's properties.
 
-To reinstall after source changes, close the Windows app and run `install-windows.bat` again. Saved tasks and preferences are kept separately in `%LOCALAPPDATA%\quiet-pomodoro\state.ini`.
+To reinstall after source changes, close Stash and run `install-windows.bat` again. The installer replaces the old Quiet Pomodoro shortcuts with Stash shortcuts. Saved tasks, preferences, and calendar history are kept separately in `%LOCALAPPDATA%\quiet-pomodoro\state.ini`.
 
 For a build with dependencies already installed, or to import existing settings only when Windows has no saved state:
 
@@ -118,7 +124,7 @@ pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w
 ```bash
 cmake -S . -B build-windows -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build-windows
-./build-windows/pomodoro.exe
+./build-windows/stash.exe
 ```
 
 Alternatively, `run-windows.bat` builds and launches the app after dependencies are installed. It assumes MSYS2 is located at `C:\msys64`; otherwise, set `MSYS2_ROOT`.
@@ -135,6 +141,10 @@ The executable needs GTK runtime dependencies if moved to another PC. See [GTK's
 
 > Completing a timer marks the **session** as finished; tasks are marked complete only when you check them off yourself.
 
+Each completed focus interval adds its duration to the calendar on the local date it finishes. For example, completing the first 25-minute session in a six-session plan (1/6) records 25 minutes; completing all six records 2 hours 30 minutes. Starting, pausing, resetting an unfinished timer, and taking breaks add no time. Starting a new plan keeps your history.
+
+The four green levels represent under 1 hour, 1–2 hours, 2–4 hours, and 4 or more hours of completed focus time in a day. Days with no completed focus time stay dark. There are no visible calendar titles, month/day labels, or legends; details appear only on hover. Compact mode keeps its small timer and task layout.
+
 ## Keyboard Shortcuts
 
 | Shortcut         | Action                                                    |
@@ -149,7 +159,9 @@ The executable needs GTK runtime dependencies if moved to another PC. See [GTK's
 | `Ctrl + H`       | Hide to taskbar                                           |
 | `Ctrl + Q`       | Close application                                         |
 
-The interface also offers buttons for these actions. On some Wayland desktops, always-on-top behavior and requested window dimensions are controlled by the compositor.
+The red window control closes the app, yellow minimizes it to the taskbar, and green enters fullscreen. In fullscreen, the header shows only **··· Settings**; exit with `Esc`, `F11`, or **Settings → EXIT FULLSCREEN**. Switch between the compact panel and expanded window using `M` or the mode button in Settings. Settings is available in both window sizes.
+
+On some Wayland desktops, always-on-top behavior and requested window dimensions are controlled by the compositor.
 
 ## Audio & Troubleshooting
 
@@ -173,7 +185,7 @@ On WSL, automatic playback tries the Windows output first, then WSLg PulseAudio 
 
 ## Saving Your Progress
 
-Session tasks, completion status, plans, duration settings, and audio preferences are automatically saved to:
+Session tasks, completion status, plans, daily focus history, duration settings, and audio preferences are automatically saved to:
 
 | System      | Saved state                                                                           |
 | ----------- | ------------------------------------------------------------------------------------- |
@@ -181,6 +193,10 @@ Session tasks, completion status, plans, duration settings, and audio preference
 | Windows     | `%LOCALAPPDATA%\quiet-pomodoro\state.ini`                                             |
 
 The next unfinished session is prepared when the app reopens, but an active countdown itself is not resumed. Use one running instance at a time. To reset saved data completely, close the app and delete its `state.ini` file.
+
+Stash retains the previous `quiet-pomodoro` save folder for compatibility, so renaming the app preserves existing tasks, preferences, and history.
+
+Calendar history is stored as completed focus seconds per local date in the `[activity]` section of the same file. History survives restarts, date changes, and new plans. Existing installations start with an empty calendar because older saves did not retain dated focus durations; existing tasks and settings are preserved.
 
 ## Project Structure
 
@@ -190,12 +206,14 @@ src/
   timer.hpp                 # Countdown and Pomodoro phase cycle
   plan.hpp                  # Session target and progress
   storage.*                 # Tasks, settings, and persistence
+  activity.*                # Daily focus history, calendar dates, highlight levels
   font.*                    # App-local font registration
   audio.*                   # Queued playback and audio outputs
   audio_samples.hpp         # Generated tones / WAV data
   windows_audio_script.hpp # Windows audio bridge
 assets/
   style.css                 # Interface styling
+  stash.svg / .png / .ico    # Black-and-white pixel hourglass for Linux, GTK, and Windows
   ...                       # Font, license, icon, desktop launcher
 tests/                       # Automated tests
 tools/setup_audio.py         # Linux audio runtime setup
@@ -204,6 +222,7 @@ run-windows.bat               # Windows launcher
 install-windows.bat           # Native Windows installation and shortcuts
 tools/install_windows.ps1     # Per-user Windows installer
 tools/build_windows.sh        # Windows build, tests, and runtime packaging
+tools/build_icons.py          # Regenerate PNG/ICO from the pixel hourglass SVG
 CMakeLists.txt                # CMake build configuration
 ```
 
@@ -215,7 +234,7 @@ Run automated tests after building:
 ctest --test-dir build --output-on-failure
 ```
 
-Tests cover timer behavior, phase transitions, session plans, persistence, audio handling, and embedded assets. An optional graphical smoke test checks window layouts, tasks, and UI behavior:
+Tests cover timer behavior, phase transitions, session plans, daily focus totals, calendar dates and hour thresholds, persistence, audio handling, and actual bundled-font selection. An optional graphical smoke test checks window layouts, tasks, and completed-session recording:
 
 To verify the installed Windows package, run:
 
@@ -228,7 +247,7 @@ This checks native audio, desktop behavior, and both shortcuts with WSL/MSYS2 ru
 For the Linux graphical smoke test:
 
 ```bash
-QUIET_SMOKE_CONFIG="$(mktemp -d)" ./build/pomodoro --smoke-test
+QUIET_SMOKE_CONFIG="$(mktemp -d)" ./build/stash --smoke-test
 ```
 
 Run this from the project root within a graphical session. The smoke test may generate preview screenshots such as `docs/main.png`, `docs/compact.png`, and `docs/expanded.png` (plus additional views where supported).
@@ -237,7 +256,7 @@ Run this from the project root within a graphical session. The smoke test may ge
 
 The app includes [Silkscreen](https://github.com/googlefonts/silkscreen) by the Silkscreen Project Authors, licensed under the **SIL Open Font License 1.1**. The bundled font and its license are located at `assets/Silkscreen-Regular.ttf` and `assets/Silkscreen-OFL.txt`.
 
-The app also includes [DejaVu Sans Mono](https://dejavu-fonts.github.io/) for readable task text across platforms. Its Bitstream Vera license and DejaVu public-domain notice are included in `assets/DejaVu-LICENSE.txt`.
+The app also includes [Inter](https://github.com/google/fonts/tree/main/ofl/inter) by the Inter Project Authors for interface text across platforms, licensed under the **SIL Open Font License 1.1**. The bundled font and license are located at `assets/Inter.ttf` and `assets/Inter-OFL.txt`.
 
 ## License
 

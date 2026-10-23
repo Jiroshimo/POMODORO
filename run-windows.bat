@@ -12,7 +12,7 @@ cmake -S "%~dp0." -B "%~dp0build-windows" -G Ninja -DCMAKE_BUILD_TYPE=Release -D
 if errorlevel 1 goto :failed
 cmake --build "%~dp0build-windows" --parallel
 if errorlevel 1 goto :failed
-start "" "%~dp0build-windows\pomodoro.exe"
+start "" "%~dp0build-windows\stash.exe"
 exit /b 0
 :failed
 echo Build failed. See README.md for setup instructions.

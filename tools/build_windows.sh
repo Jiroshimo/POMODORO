@@ -10,9 +10,10 @@ cmake --build "$source_dir/build" --parallel
 ctest --test-dir "$source_dir/build" --output-on-failure
 
 mkdir -p "$stage"
-cp "$source_dir/build/pomodoro.exe" "$stage/"
+cp "$source_dir/build/stash.exe" "$stage/"
+cp "$source_dir/assets/stash.ico" "$stage/"
 cp "$source_dir/assets/Silkscreen-OFL.txt" "$stage/"
-cp "$source_dir/assets/DejaVu-LICENSE.txt" "$stage/"
+cp "$source_dir/assets/Inter-OFL.txt" "$stage/"
 for path in lib/gdk-pixbuf-2.0 etc/fonts share/glib-2.0/schemas \
             share/icons/Adwaita share/icons/hicolor share/licenses; do
   if [[ -d /ucrt64/$path ]]; then
@@ -21,12 +22,12 @@ for path in lib/gdk-pixbuf-2.0 etc/fonts share/glib-2.0/schemas \
   fi
 done
 mkdir -p "$stage/share/icons/hicolor/scalable/apps"
-cp "$source_dir/assets/quiet-pomodoro.svg" "$stage/share/icons/hicolor/scalable/apps/"
+cp "$source_dir/assets/stash.svg" "$stage/share/icons/hicolor/scalable/apps/"
 
 # Bundle the import closure, including dependencies of dynamically loaded image loaders.
 # Windows system DLLs remain supplied by Windows itself.
 declare -A copied=()
-queue=("$stage/pomodoro.exe")
+queue=("$stage/stash.exe")
 while IFS= read -r -d '' module; do queue+=("$module"); done < <(find "$stage/lib" -name '*.dll' -print0)
 for ((index=0; index<${#queue[@]}; index++)); do
   while IFS= read -r dependency; do

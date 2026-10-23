@@ -6,7 +6,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $sourceRoot = Split-Path $PSScriptRoot -Parent
-$installPath = Join-Path $env:LOCALAPPDATA 'Programs\QuietPomodoro'
+$installPath = Join-Path $env:LOCALAPPDATA 'Programs\Stash'
+$legacyInstallPath = Join-Path $env:LOCALAPPDATA 'Programs\QuietPomodoro'
 $bash = Join-Path $Msys2Root 'usr\bin\bash.exe'
 if (!(Test-Path $bash)) { throw 'Install MSYS2 from https://www.msys2.org/ first, then rerun this installer.' }
 $env:MSYSTEM = 'UCRT64'
@@ -27,10 +28,12 @@ foreach ($tool in @('cmake.exe', 'ninja.exe', 'pkgconf.exe', 'libgtk-3-0.dll')) 
         throw "Missing $tool. Rerun install-windows.bat to install the build dependencies."
     }
 }
-$running = Get-Process pomodoro -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$installPath\pomodoro.exe" }
-if ($running) { throw 'Close the Windows Pomodoro app before reinstalling.' }
+$running = Get-Process stash,pomodoro -ErrorAction SilentlyContinue | Where-Object {
+    $_.Path -eq "$installPath\stash.exe" -or $_.Path -eq "$legacyInstallPath\pomodoro.exe"
+}
+if ($running) { throw 'Close Stash or the previous Pomodoro app before reinstalling.' }
 
-$work = Join-Path ([IO.Path]::GetTempPath()) ('QuietPomodoro-' + [Guid]::NewGuid().ToString('N'))
+$work = Join-Path ([IO.Path]::GetTempPath()) ('Stash-' + [Guid]::NewGuid().ToString('N'))
 $nativeSource = Join-Path $work 'source'
 $stage = Join-Path $work 'app'
 New-Item -ItemType Directory -Path $nativeSource -Force | Out-Null
@@ -68,20 +71,33 @@ try {
     if ($StateFile -and !(Test-Path $statePath)) {
         New-Item -ItemType Directory -Path (Split-Path $statePath -Parent) -Force | Out-Null
         Copy-Item -LiteralPath $StateFile -Destination $statePath
-        Write-Host 'Copied existing Pomodoro tasks and settings to Windows.'
+        Write-Host 'Copied existing tasks and settings to Stash.'
     }
+    # Give changed artwork a new filename so Explorer picks up the new icon.
+    $packagedIcon = Join-Path $installPath 'stash.ico'
+    $iconHash = (Get-FileHash -LiteralPath $packagedIcon -Algorithm SHA256).Hash.Substring(0, 12).ToLowerInvariant()
+    $shortcutIcon = Join-Path $installPath "stash-$iconHash.ico"
+    Move-Item -LiteralPath $packagedIcon -Destination $shortcutIcon
     $shell = New-Object -ComObject WScript.Shell
     foreach ($folder in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
-        $shortcut = $shell.CreateShortcut((Join-Path $folder 'Quiet Pomodoro.lnk'))
-        $shortcut.TargetPath = Join-Path $installPath 'pomodoro.exe'
+        $shortcut = $shell.CreateShortcut((Join-Path $folder 'Stash.lnk'))
+        $shortcut.TargetPath = Join-Path $installPath 'stash.exe'
         $shortcut.WorkingDirectory = $installPath
-        $shortcut.IconLocation = "$installPath\pomodoro.exe,0"
-        $shortcut.Description = 'Quiet Pomodoro - focus timer and session tasks'
+        $shortcut.IconLocation = "$shortcutIcon,0"
+        $shortcut.Description = 'Stash - focus timer and session tasks'
         $shortcut.Save()
+        # Replace only shortcuts belonging to this app's previous installation.
+        $oldShortcutPath = Join-Path $folder 'Quiet Pomodoro.lnk'
+        if (Test-Path -LiteralPath $oldShortcutPath) {
+            $oldShortcut = $shell.CreateShortcut($oldShortcutPath)
+            if ($oldShortcut.TargetPath -eq "$legacyInstallPath\pomodoro.exe") {
+                Remove-Item -LiteralPath $oldShortcutPath
+            }
+        }
     }
-    Write-Host "Installed: $installPath\pomodoro.exe"
-    Write-Host 'Created Quiet Pomodoro shortcuts on the Desktop and in the Start Menu.'
-    if ($Launch) { Start-Process -FilePath (Join-Path $installPath 'pomodoro.exe') -WorkingDirectory $installPath }
+    Write-Host "Installed: $installPath\stash.exe"
+    Write-Host 'Created Stash shortcuts on the Desktop and in the Start Menu.'
+    if ($Launch) { Start-Process -FilePath (Join-Path $installPath 'stash.exe') -WorkingDirectory $installPath }
 } catch {
     Write-Host "Build and diagnostic files retained at: $work"
     throw

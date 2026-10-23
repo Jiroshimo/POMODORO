@@ -34,11 +34,13 @@ int main() {
     check(!timer.update(101000000).warning, "resuming cannot repeat warning");
     auto tick = timer.update(108000000);
     check(tick.complete && tick.focusComplete, "completion after pause and resume");
+    check(tick.focusSeconds == 60, "completed duration excludes paused time");
     check(timer.mode == Mode::ShortBreak && timer.running(), "focus automatically starts break");
     check(!timer.update(108000000).complete, "completion emitted only once at boundary");
     tick = timer.update(168000000);
     check(tick.complete && !tick.focusComplete && timer.mode == Mode::Focus && timer.running(),
           "break automatically starts focus");
+    check(tick.focusSeconds == 0, "break completion has no focus duration");
 
     for (int session = 2; session <= 4; ++session) {
         timer.select(Mode::Focus);
@@ -65,5 +67,16 @@ int main() {
           "sleep advances one phase and starts a full fresh timer");
     timer.reset();
     check(!timer.running(), "reset stops the automatic loop");
+    timer.minutes[0] = 25;
+    timer.select(Mode::Focus);
+    timer.start(0);
+    timer.minutes[0] = 90;
+    tick = timer.update(1500000000);
+    check(tick.focusSeconds == 1500, "settings changes do not inflate the active session's recorded duration");
+    check(!timer.update(1500000000).focusSeconds, "repeated update cannot record the session twice");
+    timer.select(Mode::Focus);
+    timer.start(0);
+    tick = timer.update(86400000000LL);
+    check(tick.focusSeconds == 5400, "delayed updates record one scheduled focus interval");
     std::cout << "Timer checks passed\n";
 }

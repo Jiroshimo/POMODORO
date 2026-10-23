@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 try {
     [byte[]]$wav = [IO.File]::ReadAllBytes($wavPath)
-    if ($wav.Length -lt 44) { throw 'No WAV audio received from POMODORO.' }
+    if ($wav.Length -lt 44) { throw 'No WAV audio received from Stash.' }
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;

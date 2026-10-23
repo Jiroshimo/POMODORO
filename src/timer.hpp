@@ -9,7 +9,12 @@
 namespace quiet {
 
 enum class Mode { Focus, ShortBreak, LongBreak };
-struct Tick { bool warning = false; bool complete = false; bool focusComplete = false; };
+struct Tick {
+    bool warning = false;
+    bool complete = false;
+    bool focusComplete = false;
+    int focusSeconds = 0;
+};
 
 // Time is injected in microseconds so timer behavior is independent of UI ticks.
 class Timer {
@@ -25,7 +30,8 @@ public:
     void reset() {
         running_ = false;
         warned_ = false;
-        remaining_ = static_cast<std::int64_t>(minutes[static_cast<int>(mode)]) * 60000000;
+        phaseSeconds_ = minutes[static_cast<int>(mode)] * 60;
+        remaining_ = static_cast<std::int64_t>(phaseSeconds_) * 1000000;
     }
     void start(std::int64_t now) {
         if (running_) return;
@@ -44,6 +50,7 @@ public:
         if (remaining_ == 0) {
             result.complete = true;
             result.focusComplete = mode == Mode::Focus;
+            if (result.focusComplete) result.focusSeconds = phaseSeconds_;
             if (result.focusComplete) {
                 ++cycle;
                 mode = cycle % 4 == 0 ? Mode::LongBreak : Mode::ShortBreak;
@@ -71,5 +78,6 @@ private:
     std::int64_t deadline_ = 0;
     bool running_ = false;
     bool warned_ = false;
+    int phaseSeconds_ = 25 * 60;
 };
 } // namespace quiet

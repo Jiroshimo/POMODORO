@@ -16,8 +16,8 @@ PixelFont::PixelFont() {
     }
     directory_ = directory;
     g_free(directory);
-    for (const auto* name : {"Silkscreen-Regular.ttf", "DejaVuSansMono.ttf"}) {
-        const auto resource = std::string("/quiet-pomodoro/") + name;
+    for (const auto* name : {"Silkscreen-Regular.ttf", "Inter.ttf"}) {
+        const auto resource = std::string("/stash/") + name;
         GBytes* bytes = g_resources_lookup_data(resource.c_str(), G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
         if (!bytes) { g_printerr("Bundled font missing: %s\n", name); continue; }
         const auto path = directory_ + G_DIR_SEPARATOR_S + name;
@@ -37,7 +37,7 @@ PixelFont::PixelFont() {
 #endif
         }
         g_bytes_unref(bytes);
-        if (!registered) g_printerr("App font unavailable: %s; using the monospace fallback.\n", name);
+        if (!registered) g_printerr("App font unavailable: %s; using system fonts.\n", name);
     }
 }
 PixelFont::~PixelFont() {

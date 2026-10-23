@@ -28,7 +28,7 @@ public:
         g_free(directory);
         g_free(executable);
         std::vector<std::string> pending;
-        for (const auto& root : {base + "/audio-runtime", base + "/../lib/quiet-pomodoro/audio-runtime"}) {
+        for (const auto& root : {base + "/audio-runtime", base + "/../lib/stash/audio-runtime"}) {
             const auto libraries = root + "/usr/lib/" QUIET_AUDIO_LIBRARY_ARCH;
             for (const auto& path : {libraries, libraries + "/pulseaudio"}) {
                 GDir* dir = g_dir_open(path.c_str(), 0, nullptr);
@@ -101,7 +101,7 @@ PlaybackResult pulse(const std::vector<std::int16_t>& samples) {
     const std::uint16_t endian = 1;
     SampleSpec spec{format(*reinterpret_cast<const unsigned char*>(&endian) ? "s16le" : "s16be"), quiet::sound::rate, 1};
     int error = 0;
-    void* device = open(g_getenv("PULSE_SERVER"), "POMODORO", 1 /* playback */, nullptr, "Timer chime", &spec, nullptr, nullptr, &error);
+    void* device = open(g_getenv("PULSE_SERVER"), "Stash", 1 /* playback */, nullptr, "Timer chime", &spec, nullptr, nullptr, &error);
     if (!device) { result.error = std::string("PulseAudio: ") + describe(error); return result; }
     if (write(device, samples.data(), samples.size() * sizeof(samples[0]), &error) < 0 || drain(device, &error) < 0)
         result.error = std::string("PulseAudio: ") + describe(error);

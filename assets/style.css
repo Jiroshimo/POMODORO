@@ -1,13 +1,13 @@
-* { font-family: "DejaVu Sans Mono", "Consolas", monospace; font-size: 14px; }
+* { font-family: "Inter", sans-serif; font-size: 14px; }
 window { background: transparent; color: #eeeeef; }
 .surface { background: #0a0b0d; border: 1px solid #303238; border-radius: 20px; padding: 6px; }
 .surface.edge-to-edge { border-color: transparent; border-radius: 0; }
 box, eventbox, scrolledwindow, viewport { background: transparent; }
-button { background: transparent; background-image: none; color: #bcc0cc;
+button { background: transparent; background-image: none; color: #bcc0cc; font-weight: 500;
   border: 1px solid transparent; border-radius: 7px; box-shadow: none;
   text-shadow: none; padding: 6px 10px; min-height: 16px;
   transition: background-color 100ms ease, color 100ms ease; }
-button label { color: inherit; font-family: inherit; font-size: inherit; }
+button label { color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit; }
 checkbutton label { font-family: inherit; font-size: inherit; }
 button:hover { background: #23252b; color: #ffffff; }
 button:focus { border-color: #767983; }
@@ -15,23 +15,26 @@ button:active { background: #30333a; }
 button:disabled { color: #50525b; }
 .brand { font-family: "Silkscreen", monospace; color: #e2e3e8; letter-spacing: 1px; font-size: 14px; }
 button.icon { padding: 2px; min-width: 25px; min-height: 25px; }
-button.icon label { font-family: "DejaVu Sans Mono", "Consolas", monospace; font-size: 17px; }
-button.close:hover { color: #ffffff; background: #38252b; }
+button.icon label { font-family: "Inter", sans-serif; font-size: 17px; }
+button.window-control { min-width: 28px; min-height: 28px; padding: 0;
+  border: 1px solid transparent; border-radius: 6px; }
+button.window-control:hover, button.window-control:active { background: transparent; }
+button.window-control:focus { border-color: #767983; }
 .timer { font-family: "Silkscreen", monospace; font-size: 76px; letter-spacing: 0; color: #f4f4f6; }
 .mini-timer { font-family: "Silkscreen", monospace; font-size: 44px; color: #f4f4f6; }
-.section { color: #b3b8c4; font-size: 13px; letter-spacing: 0; }
-.count { color: #e3e4e9; font-size: 14px; }
+.section { color: #b3b8c4; font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.count { color: #e3e4e9; font-size: 14px; font-weight: 600; }
 .dim { color: #a1a8b6; font-size: 13px; }
 .done-session { color: #bfc6bd; }
 .modes { background: #121318; border: 1px solid #24262d; border-radius: 9px; padding: 3px; }
 button.mode { padding: 7px 13px; border-radius: 6px; font-size: 13px; }
-button.mode.selected { background: #2b2d35; color: #f8f8fa; }
-button.primary { color: #111216; background: #e7e8ec; border: 1px solid #e7e8ec;
+button.mode.selected { background: #2b2d35; color: #f8f8fa; font-weight: 600; }
+button.primary { color: #111216; background: #e7e8ec; border: 1px solid #e7e8ec; font-weight: 600;
   border-radius: 8px; padding: 10px 22px; }
 button.primary:hover { background: #ffffff; border-color: #ffffff; }
 button.primary:focus { border-color: #7f8496; }
 button.reset { border: 1px solid #31343e; padding: 6px 10px; }
-button.reset label { font-family: monospace; font-size: 19px; }
+button.reset label { font-family: "Inter", sans-serif; font-size: 19px; }
 separator { background: #272930; min-height: 1px; }
 entry { background: #111217; color: #e4e5eb; border: 1px solid #2d3039;
   border-radius: 8px; padding: 9px 10px; min-width: 0; box-shadow: none; caret-color: #ffffff; }
@@ -41,13 +44,13 @@ button.add { background: #1a1c23; border: 1px solid #30343e; padding: 4px 10px; 
 button.add label { font-size: 18px; }
 button.add:hover { background: #30343f; }
 .task-row { padding: 4px 0; }
-checkbutton { color: #dbdce3; padding: 3px 0; }
+checkbutton { color: #dbdce3; padding: 3px 0; min-height: 26px; }
 checkbutton check { background: #101116; border: 1px solid #616573; border-radius: 4px;
   min-width: 16px; min-height: 16px; margin-right: 9px; color: #13151a; }
 checkbutton check:checked { background: #c0c4ce; border-color: #c0c4ce; }
 checkbutton.done label { color: #a0a6b3; text-decoration-line: line-through; }
 button.delete { color: #a1a8b6; padding: 1px 3px; min-width: 16px; }
-button.delete label { font-family: monospace; font-size: 17px; }
+button.delete label { font-family: "Inter", sans-serif; font-size: 17px; }
 button.delete:hover { color: #ffffff; }
 popover { background: #15171d; color: #e2e4eb; border: 1px solid #373b47; border-radius: 12px; }
 spinbutton { background: #14161c; color: #e5e7ee; border: 1px solid #343945; border-radius: 6px; }
@@ -66,7 +69,7 @@ spinbutton button { padding: 3px; min-width: 16px; border-radius: 4px; }
 .immersive button.primary { font-size: 16px; padding: 10px 38px; border-radius: 10px; }
 .immersive button.reset { padding: 10px 15px; }
 .immersive entry { font-size: 16px; padding: 12px 14px; }
-.immersive checkbutton { font-size: 16px; padding: 5px 0; }
+.immersive checkbutton { font-size: 16px; padding: 5px 0; min-height: 30px; }
 .immersive checkbutton check { min-width: 19px; min-height: 19px; }
 .immersive .task-row { padding: 5px 0; }
 .immersive button.icon { min-width: 30px; min-height: 30px; }

@@ -16,7 +16,7 @@ void* pa_simple_new(const char* server, const char* name, int direction, const c
                     const SampleSpec* spec, const void*, const void*, int* error) {
     const char* mode = std::getenv("FAKE_WINDOWS_AUDIO_RESULT");
     const bool valid = !(mode && (std::strcmp(mode, "both-fail") == 0 || std::strcmp(mode, "preferred-linux") == 0)) &&
-        server && std::strcmp(server, "unix:/tmp/pomodoro-pulse-test") == 0 && name &&
+        server && std::strcmp(server, "unix:/tmp/stash-pulse-test") == 0 && name &&
         direction == 1 && spec && (spec->format == 3 || spec->format == 4) && spec->rate == 44100 && spec->channels == 1;
     *error = valid ? 0 : 1;
     device.written = false;

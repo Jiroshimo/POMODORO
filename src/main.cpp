@@ -63,6 +63,44 @@ GtkWidget* button(const char* text, const char* name, const char* hint, std::fun
     connect(widget, "clicked", std::move(callback));
     return widget;
 }
+// Keep the familiar 12px circles inside comfortable 28px click targets.
+GtkWidget* windowControl(int kind, const char* hint, std::function<void()> callback) {
+    auto* widget = gtk_button_new();
+    style(widget, "window-control");
+    gtk_widget_set_tooltip_text(widget, hint);
+    atk_object_set_name(gtk_widget_get_accessible(widget), hint);
+    connect(widget, "clicked", std::move(callback));
+    auto* dot = gtk_drawing_area_new();
+    gtk_widget_set_size_request(dot, 12, 12);
+    gtk_widget_set_halign(dot, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(dot, GTK_ALIGN_CENTER);
+    gtk_container_add(GTK_CONTAINER(widget), dot);
+    g_signal_connect(dot, "draw", G_CALLBACK((+[](GtkWidget* dot, cairo_t* cr, gpointer data) -> gboolean {
+        const int kind = GPOINTER_TO_INT(data);
+        const double colors[][3] = {{1.0, 0.37, 0.34}, {1.0, 0.74, 0.18}, {0.16, 0.78, 0.25}};
+        cairo_set_source_rgb(cr, colors[kind][0], colors[kind][1], colors[kind][2]);
+        cairo_arc(cr, 6, 6, 5.5, 0, 2 * G_PI);
+        cairo_fill(cr);
+        const auto state = gtk_widget_get_state_flags(gtk_widget_get_parent(dot));
+        if (state & (GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_ACTIVE)) {
+            cairo_set_source_rgba(cr, 0, 0, 0, 0.65);
+            cairo_set_line_width(cr, 1.1);
+            if (kind == 0) {
+                cairo_move_to(cr, 4, 4); cairo_line_to(cr, 8, 8);
+                cairo_move_to(cr, 8, 4); cairo_line_to(cr, 4, 8);
+            } else {
+                cairo_move_to(cr, 3, 6); cairo_line_to(cr, 9, 6);
+                if (kind == 2) { cairo_move_to(cr, 6, 3); cairo_line_to(cr, 6, 9); }
+            }
+            cairo_stroke(cr);
+        }
+        return FALSE;
+    })), GINT_TO_POINTER(kind));
+    g_signal_connect(widget, "state-flags-changed", G_CALLBACK(+[](GtkWidget*, GtkStateFlags, gpointer dot) {
+        gtk_widget_queue_draw(GTK_WIDGET(dot));
+    }), dot);
+    return widget;
+}
 void pack(GtkWidget* box, GtkWidget* child, bool expand = false) {
     gtk_box_pack_start(GTK_BOX(box), child, expand, expand, 0);
 }
@@ -75,11 +113,23 @@ void margins(GtkWidget* widget, int horizontal, int top = 0, int bottom = 0) {
 void cancel(guint& source) {
     if (source) { g_source_remove(source); source = 0; }
 }
+struct CalendarGeometry {
+    double step, cell, x, y;
+    explicit CalendarGeometry(GtkWidget* widget) {
+        const int width = gtk_widget_get_allocated_width(widget);
+        const int height = gtk_widget_get_allocated_height(widget);
+        step = std::min(14.0, std::floor(width / 53.0));
+        cell = step - (step <= 9 ? 1 : 2);
+        x = (width - 53 * step) / 2;
+        y = (height - 7 * step) / 2;
+    }
+};
 
 struct TaskWidget { GtkWidget* check; std::size_t index; };
 struct View {
     GtkWidget *root{}, *content{}, *digits{}, *start{}, *progress{}, *mode{}, *tasks{}, *entry{},
-        *taskCount{}, *session{}, *previous{}, *next{}, *error{}, *scroll{};
+        *taskCount{}, *session{}, *previous{}, *next{}, *error{}, *scroll{},
+        *windowControls{}, *brand{}, *settings{}, *close{}, *minimize{}, *fullscreen{};
     std::vector<TaskWidget> checks;
 };
 
@@ -96,7 +146,7 @@ public:
         timer_.reset();
         selected_ = prefs_.plan.current();
         auto* provider = gtk_css_provider_new();
-        gtk_css_provider_load_from_resource(provider, "/quiet-pomodoro/style.css");
+        gtk_css_provider_load_from_resource(provider, "/stash/style.css");
         gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
                                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         g_object_unref(provider);
@@ -110,6 +160,7 @@ public:
         renderTasks();
         refresh();
         gtk_widget_show_all(window_);
+        updateWindowControls();
         gtk_widget_hide(popover_);
         gtk_widget_grab_focus(views_[0].start);
         if (smoke_) g_timeout_add(250, +[](gpointer data) -> gboolean {
@@ -121,7 +172,7 @@ public:
 
 private:
     GtkWidget *window_{}, *stack_{}, *popover_{}, *target_{}, *compactButton_{}, *audioStatus_{},
-        *surface_{}, *grip_{}, *fullscreenButton_{}, *audioDetails_{};
+        *surface_{}, *grip_{}, *fullscreenAction_{}, *audioDetails_{}, *calendar_{}, *settingsScroll_{};
     std::array<GtkWidget*, 3> modeButtons_{};
     std::array<GtkWidget*, 3> duration_{};
     std::array<View, 2> views_{};
@@ -130,23 +181,29 @@ private:
     quiet::Preferences prefs_;
     quiet::Audio audio_;
     std::string path_, saveError_;
+    std::string calendarDate_;
+    std::array<std::string, 371> calendarDays_{};
     guint clock_ = 0, audioWatch_ = 0;
     bool compact_ = false, smoke_ = false, syncing_ = false, alive_ = true;
     bool fullscreen_ = false, returnCompact_ = false, returnMaximized_ = false;
     bool shortLayout_ = false;
     int layoutTier_ = 0;
     int selected_ = 1, result_ = 0;
-    int mainWidth_ = 480, mainHeight_ = 650, compactSize_ = 360;
+    int mainWidth_ = 480, mainHeight_ = 700, compactSize_ = 360;
     int shapedWidth_ = 0, shapedHeight_ = 0, cursorEdge_ = -2;
 
     void buildWindow() {
         window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-        gtk_window_set_title(GTK_WINDOW(window_), "POMODORO");
+        gtk_window_set_title(GTK_WINDOW(window_), "Stash");
         gtk_window_set_default_size(GTK_WINDOW(window_), mainWidth_, mainHeight_);
         gtk_window_set_position(GTK_WINDOW(window_), GTK_WIN_POS_CENTER);
         gtk_window_set_resizable(GTK_WINDOW(window_), TRUE);
         gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
-        gtk_window_set_icon_name(GTK_WINDOW(window_), "quiet-pomodoro");
+        GdkPixbuf* icon = gdk_pixbuf_new_from_resource("/stash/stash.png", nullptr);
+        if (icon) {
+            gtk_window_set_icon(GTK_WINDOW(window_), icon);
+            g_object_unref(icon);
+        }
         gtk_widget_set_app_paintable(window_, TRUE);
         GdkVisual* rgba = gdk_screen_get_rgba_visual(gtk_widget_get_screen(window_));
         if (rgba) gtk_widget_set_visual(window_, rgba);
@@ -173,7 +230,7 @@ private:
             auto* app = static_cast<App*>(data);
             if (event->changed_mask & GDK_WINDOW_STATE_FULLSCREEN) {
                 app->fullscreen_ = (event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
-                app->updateFullscreenButton();
+                app->updateWindowControls();
             }
             app->shapedWidth_ = 0;
             app->updateLayout();
@@ -296,39 +353,34 @@ private:
         view.root = mini ? gtk_box_new(GTK_ORIENTATION_VERTICAL, 0) : gtk_overlay_new();
         if (mini) style(view.root, "compact");
         gtk_stack_add_named(GTK_STACK(stack_), view.root, mini ? "mini" : "main");
-        GtkWidget* header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+        GtkWidget* header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
         margins(header, mini ? 10 : 16, 3, 0);
-        GtkWidget* title = label("POMODORO", "brand");
-        gtk_widget_set_halign(title, GTK_ALIGN_START);
-        pack(header, title, true);
+        view.windowControls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+        view.close = windowControl(0, "Close (Ctrl+Q)", [this] { gtk_widget_destroy(window_); });
+        view.minimize = windowControl(1, "Minimize to the taskbar (Ctrl+H)", [this] {
+            gtk_window_iconify(GTK_WINDOW(window_));
+        });
+        view.fullscreen = windowControl(2, "Enter fullscreen (F11)", [this] { setFullscreen(!fullscreen_); });
+        pack(view.windowControls, view.close);
+        pack(view.windowControls, view.minimize);
+        pack(view.windowControls, view.fullscreen);
+        pack(header, view.windowControls);
+        view.brand = label("STASH", "brand");
+        gtk_widget_set_halign(view.brand, GTK_ALIGN_START);
+        gtk_widget_set_margin_start(view.brand, 12);
+        pack(header, view.brand, true);
         view.error = label("!", "error");
         gtk_widget_set_no_show_all(view.error, TRUE);
         pack(header, view.error);
-        if (!mini) {
-            GtkWidget* settings = button("···", "icon", "Settings", [this] {
-                gtk_widget_show_all(popover_);
-                gtk_popover_popup(GTK_POPOVER(popover_));
-            });
-            pack(header, settings);
-            compactButton_ = button("−", "icon", "Minimize to square panel (M)", [this] { setCompact(true); });
-            pack(header, compactButton_);
-            fullscreenButton_ = button("⛶", "icon", "Enter fullscreen (F11)", [this] { setFullscreen(!fullscreen_); });
-            pack(header, fullscreenButton_);
-            pack(header, button("□", "icon", "Maximize or restore", [this] {
-                if (fullscreen_) { setFullscreen(false); return; }
-                if (gtk_window_is_maximized(GTK_WINDOW(window_))) gtk_window_unmaximize(GTK_WINDOW(window_));
-                else {
-                    gtk_window_get_size(GTK_WINDOW(window_), &mainWidth_, &mainHeight_);
-                    gtk_window_maximize(GTK_WINDOW(window_));
-                }
-            }));
-            buildSettings(settings);
-        } else {
-            pack(header, button("↙", "icon", "Expand (M or Escape)", [this] { setCompact(false); }));
-        }
-        GtkWidget* close = button("×", "icon", "Close (Ctrl+Q)", [this] { gtk_widget_destroy(window_); });
-        style(close, "close");
-        pack(header, close);
+        view.settings = button("···", "icon", "Settings", [this, id] {
+            gtk_popover_set_relative_to(GTK_POPOVER(popover_), views_[id].settings);
+            gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(settingsScroll_),
+                std::clamp(gtk_widget_get_allocated_height(window_) - 96, 200, 640));
+            gtk_widget_show_all(popover_);
+            gtk_popover_popup(GTK_POPOVER(popover_));
+        });
+        gtk_box_pack_end(GTK_BOX(header), view.settings, FALSE, FALSE, 0);
+        if (!mini) buildSettings(view.settings);
         GtkWidget* titlebar = draggable(header);
         if (mini) pack(view.root, titlebar);
         else {
@@ -375,6 +427,60 @@ private:
         pack(center, progress);
         pack(view.content, center);
         buildTasks(id);
+        if (!mini) buildCalendar();
+    }
+
+    void buildCalendar() {
+        calendar_ = gtk_drawing_area_new();
+        gtk_widget_set_size_request(calendar_, 424, 84);
+        margins(calendar_, 16, 4, 12);
+        atk_object_set_name(gtk_widget_get_accessible(calendar_), "Daily completed focus time over the past year");
+        gtk_widget_set_has_tooltip(calendar_, TRUE);
+        g_signal_connect(calendar_, "draw", G_CALLBACK((+[](GtkWidget* widget, cairo_t* cr, gpointer data) -> gboolean {
+            const auto* app = static_cast<App*>(data);
+            const CalendarGeometry grid(widget);
+            if (grid.step < 3) return FALSE;
+            const double colors[][3] = {
+                {0.13, 0.15, 0.16}, {0.06, 0.30, 0.17}, {0.0, 0.43, 0.20},
+                {0.15, 0.65, 0.25}, {0.26, 0.83, 0.33}
+            };
+            for (std::size_t i = 0; i < app->calendarDays_.size(); ++i) {
+                const auto& day = app->calendarDays_[i];
+                if (day.empty()) continue;
+                const auto found = app->prefs_.activity.find(day);
+                const auto* color = colors[quiet::activityLevel(found == app->prefs_.activity.end() ? 0 : found->second)];
+                cairo_set_source_rgb(cr, color[0], color[1], color[2]);
+                cairo_rectangle(cr, grid.x + (i / 7) * grid.step, grid.y + (i % 7) * grid.step,
+                                grid.cell, grid.cell);
+                cairo_fill(cr);
+            }
+            return FALSE;
+        })), this);
+        g_signal_connect(calendar_, "query-tooltip", G_CALLBACK(+[](GtkWidget* widget, gint x, gint y,
+                         gboolean keyboard, GtkTooltip* tooltip, gpointer data) -> gboolean {
+            const auto* app = static_cast<App*>(data);
+            const CalendarGeometry grid(widget);
+            if (keyboard || grid.step < 3 || x < grid.x || y < grid.y) return FALSE;
+            const int column = static_cast<int>((x - grid.x) / grid.step);
+            const int row = static_cast<int>((y - grid.y) / grid.step);
+            if (column >= 53 || row >= 7) return FALSE;
+            const auto& day = app->calendarDays_[column * 7 + row];
+            if (day.empty()) return FALSE;
+            const auto found = app->prefs_.activity.find(day);
+            const auto seconds = found == app->prefs_.activity.end() ? 0 : found->second;
+            const auto text = day + " · " + std::to_string(seconds / 3600) + "h " +
+                              std::to_string((seconds % 3600) / 60) + "m";
+            gtk_tooltip_set_text(tooltip, text.c_str());
+            return TRUE;
+        }), this);
+        pack(views_[0].content, calendar_);
+    }
+    void refreshCalendar() {
+        const auto date = quiet::today();
+        if (calendarDate_ == date) return;
+        calendarDate_ = date;
+        calendarDays_ = quiet::calendarDays(date);
+        gtk_widget_queue_draw(calendar_);
     }
 
     void buildTasks(int id) {
@@ -518,6 +624,15 @@ private:
         gtk_widget_set_no_show_all(audioDetails_, TRUE);
         pack(content, audioDetails_);
         pack(content, gtk_separator_new(GTK_ORIENTATION_HORIZONTAL));
+        compactButton_ = button("COMPACT MODE", nullptr, "Toggle compact panel (M)", [this] {
+            gtk_popover_popdown(GTK_POPOVER(popover_));
+            setCompact(!compact_);
+        });
+        pack(content, compactButton_);
+        fullscreenAction_ = button("ENTER FULLSCREEN", nullptr, "Toggle fullscreen (F11 or Escape)", [this] {
+            setFullscreen(!fullscreen_);
+        });
+        pack(content, fullscreenAction_);
         pack(content, button("NEW PLAN", nullptr, "Reset session progress and uncheck tasks; keep the task lists", [this] {
             newPlan();
             gtk_popover_popdown(GTK_POPOVER(popover_));
@@ -526,7 +641,14 @@ private:
             gtk_popover_popdown(GTK_POPOVER(popover_));
             gtk_window_iconify(GTK_WINDOW(window_));
         }));
-        gtk_container_add(GTK_CONTAINER(popover_), content);
+        settingsScroll_ = gtk_scrolled_window_new(nullptr, nullptr);
+        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(settingsScroll_), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+        gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(settingsScroll_), TRUE);
+        gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(settingsScroll_), TRUE);
+        gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(settingsScroll_), 270);
+        gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(settingsScroll_), 600);
+        gtk_container_add(GTK_CONTAINER(settingsScroll_), content);
+        gtk_container_add(GTK_CONTAINER(popover_), settingsScroll_);
     }
 
     void setGeometry() {
@@ -537,12 +659,19 @@ private:
         const int flags = GDK_HINT_MIN_SIZE | (compact_ ? GDK_HINT_ASPECT : 0);
         gtk_window_set_geometry_hints(GTK_WINDOW(window_), nullptr, &geometry, static_cast<GdkWindowHints>(flags));
     }
-    void updateFullscreenButton() {
-        if (!fullscreenButton_) return;
-        gtk_button_set_label(GTK_BUTTON(fullscreenButton_), fullscreen_ ? "↙" : "⛶");
-        const char* hint = fullscreen_ ? "Exit fullscreen (F11 or Escape)" : "Enter fullscreen (F11)";
-        gtk_widget_set_tooltip_text(fullscreenButton_, hint);
-        atk_object_set_name(gtk_widget_get_accessible(fullscreenButton_), hint);
+    void updateWindowControls() {
+        for (auto& view : views_) {
+            if (!view.windowControls) continue;
+            gtk_widget_set_no_show_all(view.windowControls, fullscreen_);
+            gtk_widget_set_no_show_all(view.brand, fullscreen_);
+            gtk_widget_set_visible(view.windowControls, !fullscreen_);
+            gtk_widget_set_visible(view.brand, !fullscreen_);
+        }
+        if (fullscreenAction_)
+            gtk_button_set_label(GTK_BUTTON(fullscreenAction_), fullscreen_ ? "EXIT FULLSCREEN" : "ENTER FULLSCREEN");
+        if (compactButton_)
+            gtk_button_set_label(GTK_BUTTON(compactButton_), compact_ ? "EXPANDED MODE" : "COMPACT MODE");
+        updateErrors();
     }
     void updateLayout() {
         if (!views_[0].scroll) return;
@@ -559,7 +688,8 @@ private:
         style(views_[0].root, "roomy", tier == 2);
         style(views_[0].root, "short-screen", shortLayout);
         gtk_widget_set_size_request(views_[0].content, tier == 2 ? 680 : tier == 1 ? 560 : -1, -1);
-        gtk_widget_set_size_request(views_[0].scroll, -1, tier == 2 ? 220 : shortLayout ? 100 : 120);
+        gtk_widget_set_size_request(views_[0].scroll, -1, tier == 2 ? 220 : shortLayout ? 80 : 120);
+        gtk_widget_set_size_request(calendar_, 424, shortLayout ? 70 : tier > 0 ? 98 : 84);
     }
     void setFullscreen(bool value) {
         if (fullscreen_ == value) return;
@@ -582,7 +712,7 @@ private:
             else gtk_window_resize(GTK_WINDOW(window_), mainWidth_, mainHeight_);
         }
         shapedWidth_ = 0;
-        updateFullscreenButton();
+        updateWindowControls();
         updateLayout();
         roundCorners();
     }
@@ -596,7 +726,7 @@ private:
         if (fullscreen_) {
             fullscreen_ = false;
             gtk_window_unfullscreen(GTK_WINDOW(window_));
-            updateFullscreenButton();
+            updateWindowControls();
         }
         if (maximized) gtk_window_unmaximize(GTK_WINDOW(window_));
         compact_ = value;
@@ -607,6 +737,7 @@ private:
         gtk_window_set_keep_above(GTK_WINDOW(window_), value);
         gtk_window_resize(GTK_WINDOW(window_), value ? compactSize_ : mainWidth_, value ? compactSize_ : mainHeight_);
         gtk_widget_grab_focus(views_[value ? 1 : 0].start);
+        updateWindowControls();
     }
     void toggle() {
         if (prefs_.plan.done()) { newPlan(); return; }
@@ -660,6 +791,8 @@ private:
             const auto date = quiet::today();
             if (prefs_.date != date) { prefs_.date = date; prefs_.completed = 0; }
             ++prefs_.completed;
+            quiet::recordActivity(prefs_.activity, date, event.focusSeconds);
+            gtk_widget_queue_draw(calendar_);
             selected_ = prefs_.plan.current();
             if (prefs_.plan.done()) timer_.select(quiet::Mode::Focus);
             syncEntries();
@@ -670,6 +803,7 @@ private:
         refresh();
     }
     void refreshTime() {
+        refreshCalendar();
         const auto text = prefs_.plan.done() ? "00:00" : timer_.display();
         for (auto& view : views_) setText(view.digits, text);
     }
@@ -722,8 +856,10 @@ private:
         std::string error = saveError_.empty() ? "" : "Changes could not be saved: " + saveError_;
         if (audio_.failed()) error += (error.empty() ? "" : "\n") + audio_.result().error;
         for (auto& view : views_) if (view.error) {
-            gtk_widget_set_visible(view.error, !error.empty());
+            gtk_widget_set_visible(view.error, !fullscreen_ && !error.empty());
             gtk_widget_set_tooltip_text(view.error, error.empty() ? nullptr : error.c_str());
+            style(view.settings, "error", !error.empty());
+            gtk_widget_set_tooltip_text(view.settings, error.empty() ? "Settings" : error.c_str());
         }
     }
 
@@ -876,6 +1012,10 @@ private:
     void screenshot(const char* filename) {
         while (alive_ && gtk_events_pending()) gtk_main_iteration();
         if (!alive_) return;
+        // A changed label or scroll position can still await the next frame's
+        // allocation after the event queue is empty. Resolve it before drawing.
+        gtk_container_check_resize(GTK_CONTAINER(window_));
+        if (gtk_widget_get_visible(popover_)) gtk_container_check_resize(GTK_CONTAINER(popover_));
         const int w = gtk_widget_get_allocated_width(window_), h = gtk_widget_get_allocated_height(window_);
         cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
         cairo_t* cr = cairo_create(surface);
@@ -907,18 +1047,30 @@ private:
                 }
                 if (stage == 1) screenshot("docs/fullscreen.png");
             } else std::cout << "SKIP Native fullscreen unavailable on this display\n";
+            check(!gtk_widget_get_visible(views_[0].windowControls) &&
+                  !gtk_widget_get_visible(views_[0].brand) && gtk_widget_get_mapped(views_[0].settings),
+                  "Fullscreen header shows only Settings");
             check(timer_.running() && drafts_[selected_] == "Keep this draft", "Fullscreen preserves timer and task draft");
-            press(GDK_KEY_Escape);
+            if (stage == 1) {
+                g_signal_emit_by_name(views_[0].settings, "clicked");
+                check(gtk_widget_get_visible(popover_) &&
+                      gtk_popover_get_relative_to(GTK_POPOVER(popover_)) == views_[0].settings &&
+                      !gtk_widget_get_visible(views_[0].windowControls),
+                      "Fullscreen Settings opens without revealing window controls");
+                g_signal_emit_by_name(fullscreenAction_, "clicked");
+            } else press(GDK_KEY_Escape);
         } else if (stage == 2) {
-            check(!fullscreen_ && !compact_, "Escape restores expanded view");
+            check(!fullscreen_ && !compact_ && gtk_widget_get_mapped(views_[0].windowControls),
+                  "Leaving fullscreen restores expanded window controls");
             setCompact(true);
         } else if (stage == 3) {
-            press(GDK_KEY_F11);
-            check(fullscreen_ && !compact_, "F11 expands compact panel into fullscreen");
+            g_signal_emit_by_name(views_[1].fullscreen, "clicked");
+            check(fullscreen_ && !compact_, "Green window control expands compact panel into fullscreen");
         } else if (stage == 5) {
             int w = 0, h = 0;
             gtk_window_get_size(GTK_WINDOW(window_), &w, &h);
             check(!fullscreen_ && compact_ && w == compactSize_ && h == compactSize_, "Escape restores compact size after fullscreen");
+            check(gtk_widget_get_mapped(views_[1].windowControls), "Compact window controls return after fullscreen");
             setCompact(false);
             gtk_window_resize(GTK_WINDOW(window_), 620, 760);
         } else if (stage == 6) {
@@ -929,7 +1081,7 @@ private:
             check(!fullscreen_ && !compact_ && w == 620 && h == 760 && layoutTier_ == 0,
                   "Fullscreen restores normal window size and typography");
             toggle();
-            gtk_widget_destroy(window_);
+            g_signal_emit_by_name(views_[0].close, "clicked");
             return;
         }
         struct Step { App* app; int stage; };
@@ -940,6 +1092,8 @@ private:
         }, new Step{this, stage + 1}, +[](gpointer data) { delete static_cast<Step*>(data); });
     }
     void smokeTest() {
+        check(gtk_widget_get_mapped(views_[0].windowControls) && gtk_widget_get_mapped(views_[0].settings),
+              "Window controls and Settings are visible in the normal window");
         gtk_entry_set_text(GTK_ENTRY(views_[0].entry), "Build inventory system");
         g_signal_emit_by_name(views_[0].entry, "activate");
         gtk_entry_set_text(GTK_ENTRY(views_[0].entry), "Test item pickup");
@@ -964,8 +1118,10 @@ private:
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(target_), 3);
         g_signal_emit_by_name(views_[0].start, "clicked");
         check(timer_.running() && clock_ != 0, "Start timer scheduling");
+        check(prefs_.activity.empty(), "Starting a session records no activity");
         g_signal_emit_by_name(views_[0].start, "clicked");
         check(!timer_.running() && clock_ == 0, "Pause removes timer source");
+        check(prefs_.activity.empty(), "Pausing a session records no activity");
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[0]), 1);
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[1]), 1);
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[2]), 1);
@@ -974,18 +1130,22 @@ private:
         handle(timer_.update(60000000));
         check(timer_.running() && timer_.mode == quiet::Mode::ShortBreak && prefs_.plan.finished == 1,
               "Focus automatically continues to break");
+        check(prefs_.activity.at(quiet::today()) == 60, "Completed focus records its duration");
         handle(timer_.update(120000000));
         check(timer_.running() && timer_.mode == quiet::Mode::Focus && prefs_.plan.finished == 1,
               "Break automatically continues to focus");
+        check(prefs_.activity.at(quiet::today()) == 60, "Break time adds no calendar activity");
         for (int phase = 3; phase <= 5; ++phase) {
             handle(timer_.update(phase * 60000000LL));
         }
         check(prefs_.plan.done() && prefs_.plan.finished == 3 && !timer_.running(), "Stop at session goal");
         check(prefs_.tasks[0].done && !prefs_.tasks[1].done, "Session completion preserves manual task marks");
         const auto loaded = quiet::load(path_);
+        check(loaded.activity.at(quiet::today()) == 180, "Completed focus time persists to calendar history");
         check(loaded.plan.target == 3 && loaded.plan.finished == 3 && loaded.tasks.back().session == 2, "Plan storage round trip");
         newPlan();
         check(!prefs_.tasks[0].done && prefs_.plan.finished == 0, "New plan reuses and unchecks tasks");
+        check(prefs_.activity.at(quiet::today()) == 180, "New plan keeps completed focus history");
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[0]), 25);
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[1]), 5);
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(duration_[2]), 15);
@@ -1000,6 +1160,22 @@ private:
             app->check(app->compact_ && std::abs(w - h) <= 1 && w <= 380, "Square compact panel");
             app->check(gtk_widget_get_mapped(app->views_[1].tasks), "Tasks visible in compact mode");
             app->screenshot("docs/compact.png");
+            g_signal_emit_by_name(app->views_[1].settings, "clicked");
+            app->check(gtk_popover_get_relative_to(GTK_POPOVER(app->popover_)) == app->views_[1].settings,
+                       "Compact Settings uses its visible button as the anchor");
+            app->screenshot("docs/compact-settings.png");
+            app->check(gtk_widget_get_allocated_height(app->popover_) < h - 48,
+                       "Compact Settings fits inside the window");
+            auto* adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(app->settingsScroll_));
+            gtk_adjustment_set_value(adjustment, gtk_adjustment_get_upper(adjustment) - gtk_adjustment_get_page_size(adjustment));
+            app->screenshot("docs/compact-settings-actions.png");
+            int actionX = 0, actionY = 0;
+            gtk_widget_translate_coordinates(app->fullscreenAction_, app->settingsScroll_, 0, 0, &actionX, &actionY);
+            app->check(actionY >= 0 && actionY + gtk_widget_get_allocated_height(app->fullscreenAction_) <=
+                       gtk_widget_get_allocated_height(app->settingsScroll_),
+                       "Scrolling compact Settings reaches the window actions");
+            gtk_adjustment_set_value(adjustment, gtk_adjustment_get_lower(adjustment));
+            gtk_popover_popdown(GTK_POPOVER(app->popover_));
             gtk_window_resize(GTK_WINDOW(app->window_), 420, 420);
             g_timeout_add(250, +[](gpointer data) -> gboolean {
                 auto* app = static_cast<App*>(data);
@@ -1057,7 +1233,7 @@ int main(int argc, char** argv) {
         return result.ok() ? 0 : 1;
     }
     if (argc > 1 && !smoke) {
-        std::cout << "POMODORO 1.3.1\nUsage: pomodoro [--smoke-test | --test-sound [--output=auto|windows|linux]]\n";
+        std::cout << "Stash 1.4.3\nUsage: stash [--smoke-test | --test-sound [--output=auto|windows|linux]]\n";
         return std::string(argv[1]) == "--help" ? 0 : 1;
     }
     if (smoke && !g_getenv("QUIET_SMOKE_CONFIG")) {
@@ -1070,8 +1246,8 @@ int main(int argc, char** argv) {
         std::cerr << "Couldn't open a desktop display. Run this app from your graphical desktop.\n";
         return 1;
     }
-    g_set_application_name("POMODORO");
-    g_set_prgname("quiet-pomodoro");
+    g_set_application_name("Stash");
+    g_set_prgname("stash");
     App app(smoke);
     gtk_main();
     return app.result();

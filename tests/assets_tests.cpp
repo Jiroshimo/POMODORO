@@ -46,18 +46,18 @@ int main() {
         g_object_unref(loaded);
         pango_font_description_free(description);
     }
-    auto* textDescription = pango_font_description_from_string("DejaVu Sans Mono 14");
+    auto* textDescription = pango_font_description_from_string("Inter 14");
     auto* textFont = pango_font_map_load_font(fontMap, context, textDescription);
     check(textFont != nullptr, "task text font loads");
     auto* actualText = pango_font_describe(textFont);
-    check(std::strcmp(pango_font_description_get_family(actualText), "DejaVu Sans Mono") == 0,
+    check(std::strcmp(pango_font_description_get_family(actualText), "Inter") == 0,
           "task text uses the same readable face on Windows and Linux");
     pango_font_description_free(actualText);
     g_object_unref(textFont);
     pango_font_description_free(textDescription);
     g_object_unref(context);
     GError* error = nullptr;
-    GBytes* bytes = g_resources_lookup_data("/quiet-pomodoro/style.css", G_RESOURCE_LOOKUP_FLAGS_NONE, &error);
+    GBytes* bytes = g_resources_lookup_data("/stash/style.css", G_RESOURCE_LOOKUP_FLAGS_NONE, &error);
     check(bytes && !error, "embedded stylesheet present");
     gsize length = 0;
     const auto* css = static_cast<const char*>(g_bytes_get_data(bytes, &length));
@@ -71,10 +71,10 @@ int main() {
           "stylesheet parses without warnings");
     g_object_unref(provider);
     g_bytes_unref(bytes);
-    bytes = g_resources_lookup_data("/quiet-pomodoro/DejaVu-LICENSE.txt", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
+    bytes = g_resources_lookup_data("/stash/Inter-OFL.txt", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
     check(bytes != nullptr, "text font license bundled");
     g_bytes_unref(bytes);
-    bytes = g_resources_lookup_data("/quiet-pomodoro/Silkscreen-OFL.txt", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
+    bytes = g_resources_lookup_data("/stash/Silkscreen-OFL.txt", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
     check(bytes != nullptr, "font license bundled");
     g_bytes_unref(bytes);
     std::cout << "Assets checks passed\n";

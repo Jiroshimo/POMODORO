@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/quiet-pomodoro">
+  <gresource prefix="/stash">
+    <file>stash.png</file>
     <file>style.css</file>
     <file>Silkscreen-Regular.ttf</file>
     <file>Silkscreen-OFL.txt</file>
-    <file>DejaVuSansMono.ttf</file>
-    <file>DejaVu-LICENSE.txt</file>
+    <file>Inter.ttf</file>
+    <file>Inter-OFL.txt</file>
   </gresource>
 </gresources>

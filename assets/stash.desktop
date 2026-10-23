@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=POMODORO
+Name=Stash
 Comment=Focus timer and session tasks
-Exec=pomodoro
-Icon=quiet-pomodoro
+Exec=stash
+Icon=stash
 Terminal=false
 Categories=Utility;

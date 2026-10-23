@@ -1,6 +1,7 @@
 #pragma once
 #include "plan.hpp"
 #include "audio.hpp"
+#include "activity.hpp"
 #include <array>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@ struct Preferences {
     std::string date;
     SessionPlan plan;
     std::vector<Task> tasks;
+    Activity activity;
 };
 std::string today();
 Preferences load(const std::string& path);
