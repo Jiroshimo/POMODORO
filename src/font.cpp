@@ -2,45 +2,46 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 #ifdef _WIN32
-#define NOMINMAX
-#include <windows.h>
+#include <pango/pangocairo.h>
 #else
 #include <fontconfig/fontconfig.h>
 #endif
 
 namespace quiet {
 PixelFont::PixelFont() {
-    GBytes* bytes = g_resources_lookup_data("/quiet-pomodoro/Silkscreen-Regular.ttf", G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
-    if (!bytes) return;
     gchar* directory = g_dir_make_tmp("pomodoro-font-XXXXXX", nullptr);
-    if (directory) {
-        directory_ = directory;
-        path_ = directory_ + G_DIR_SEPARATOR_S + "Silkscreen-Regular.ttf";
-        g_free(directory);
+    if (!directory) {
+        g_printerr("App font directory unavailable; using system fonts.\n");
+        return;
+    }
+    directory_ = directory;
+    g_free(directory);
+    for (const auto* name : {"Silkscreen-Regular.ttf", "DejaVuSansMono.ttf"}) {
+        const auto resource = std::string("/quiet-pomodoro/") + name;
+        GBytes* bytes = g_resources_lookup_data(resource.c_str(), G_RESOURCE_LOOKUP_FLAGS_NONE, nullptr);
+        if (!bytes) { g_printerr("Bundled font missing: %s\n", name); continue; }
+        const auto path = directory_ + G_DIR_SEPARATOR_S + name;
+        paths_.push_back(path);
         gsize size = 0;
         const auto* data = static_cast<const char*>(g_bytes_get_data(bytes, &size));
-        if (g_file_set_contents(path_.c_str(), data, static_cast<gssize>(size), nullptr)) {
+        bool registered = false;
+        if (g_file_set_contents(path.c_str(), data, static_cast<gssize>(size), nullptr)) {
 #ifdef _WIN32
-            auto* wide = g_utf8_to_utf16(path_.c_str(), -1, nullptr, nullptr, nullptr);
-            registered_ = wide && AddFontResourceExW(reinterpret_cast<LPCWSTR>(wide), FR_PRIVATE, nullptr) != 0;
-            g_free(wide);
+            // Pango's Win32 font map caches its own font collection. GDI registration
+            // alone succeeds but leaves GTK rendering a fallback face.
+            GError* error = nullptr;
+            registered = pango_font_map_add_font_file(pango_cairo_font_map_get_default(), path.c_str(), &error);
+            if (error) { g_printerr("Font %s: %s\n", name, error->message); g_error_free(error); }
 #else
-            registered_ = FcConfigAppFontAddFile(FcConfigGetCurrent(), reinterpret_cast<const FcChar8*>(path_.c_str()));
+            registered = FcConfigAppFontAddFile(FcConfigGetCurrent(), reinterpret_cast<const FcChar8*>(path.c_str()));
 #endif
         }
+        g_bytes_unref(bytes);
+        if (!registered) g_printerr("App font unavailable: %s; using the monospace fallback.\n", name);
     }
-    g_bytes_unref(bytes);
-    if (!registered_) g_printerr("Pixel font unavailable; using the monospace fallback.\n");
 }
 PixelFont::~PixelFont() {
-#ifdef _WIN32
-    if (registered_) {
-        auto* wide = g_utf8_to_utf16(path_.c_str(), -1, nullptr, nullptr, nullptr);
-        if (wide) RemoveFontResourceExW(reinterpret_cast<LPCWSTR>(wide), FR_PRIVATE, nullptr);
-        g_free(wide);
-    }
-#endif
-    if (!path_.empty()) g_remove(path_.c_str());
+    for (const auto& path : paths_) g_remove(path.c_str());
     if (!directory_.empty()) g_rmdir(directory_.c_str());
 }
 } // namespace quiet

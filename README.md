@@ -42,11 +42,11 @@ If screenshots are available in this repository, see [`docs/`](docs/). You can g
 | Language                 | C++17                                                   |
 | Desktop UI               | GTK 3                                                   |
 | Build system             | CMake 3.16+                                             |
-| Styling                  | CSS, bundled Silkscreen font                            |
+| Styling                  | CSS, bundled Silkscreen and DejaVu Sans Mono fonts       |
 | Audio                    | PulseAudio / ALSA (Linux), WinMM (Windows), WSL interop |
 | Supported source targets | Linux, WSLg, Windows via MSYS2                          |
 
-> **Platform note:** The Linux release build and automated tests were verified in the development workspace. Windows source support exists but its native build has **not** been verified there. Live sound and fullscreen behavior still need testing in a real graphical desktop session.
+> **Platform note:** Linux and native Windows release builds have been verified. The Windows installation passed all five native automated tests and the desktop smoke test, including font selection, compact mode, resizing, and fullscreen. Windows accepted the test chime through WinMM; actual audibility depends on your speakers, headphones, and volume settings.
 
 ## Getting Started
 
@@ -85,9 +85,26 @@ cmake --build build --parallel
 
 A graphical Linux desktop or WSLg session is required to display the interface. The Linux launcher can also provision a local PulseAudio runtime if the system library is missing.
 
-### Windows (MSYS2)
+### Windows native installation
 
-> Native Windows builds are provided as source instructions and have not yet been verified in the Linux development workspace.
+Install [MSYS2](https://www.msys2.org/) at `C:\msys64`, then double-click **`install-windows.bat`** in this project. The installer updates MSYS2, installs the build dependencies, builds the Windows app, and runs its automated tests. Set `MSYS2_ROOT` first if MSYS2 is installed elsewhere.
+
+The app is installed for your Windows account at `%LOCALAPPDATA%\Programs\QuietPomodoro\pomodoro.exe`, with **Quiet Pomodoro** shortcuts on the Desktop and in the Start Menu. The shortcuts open the native `.exe` directly without a terminal. GTK and the required runtime DLLs are bundled beside the app; launching the installed app does not need WSL or MSYS2.
+
+The Windows build requires Pango 1.56 or newer (included with current MSYS2 packages). It loads the bundled Silkscreen timer font and DejaVu Sans Mono text font directly into Pango's font map, so GTK uses the same faces as WSL without installing fonts system-wide.
+
+To reinstall after source changes, close the Windows app and run `install-windows.bat` again. Saved tasks and preferences are kept separately in `%LOCALAPPDATA%\quiet-pomodoro\state.ini`.
+
+For a build with dependencies already installed, or to import existing settings only when Windows has no saved state:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\install_windows.ps1 -Launch
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\install_windows.ps1 -StateFile "C:\path\to\state.ini"
+```
+
+The installer also works from a WSL source folder: invoke `powershell.exe` with the script's Windows UNC path (`wslpath -w tools/install_windows.ps1`). Compilation takes place in a temporary Windows folder.
+
+### Windows development (MSYS2)
 
 1. Install [MSYS2](https://www.msys2.org/) and open the **UCRT64** terminal.
 2. Install the required packages:
@@ -184,6 +201,9 @@ tests/                       # Automated tests
 tools/setup_audio.py         # Linux audio runtime setup
 run.sh                       # Linux / WSL launcher
 run-windows.bat               # Windows launcher
+install-windows.bat           # Native Windows installation and shortcuts
+tools/install_windows.ps1     # Per-user Windows installer
+tools/build_windows.sh        # Windows build, tests, and runtime packaging
 CMakeLists.txt                # CMake build configuration
 ```
 
@@ -197,6 +217,16 @@ ctest --test-dir build --output-on-failure
 
 Tests cover timer behavior, phase transitions, session plans, persistence, audio handling, and embedded assets. An optional graphical smoke test checks window layouts, tasks, and UI behavior:
 
+To verify the installed Windows package, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\verify_windows.ps1
+```
+
+This checks native audio, desktop behavior, and both shortcuts with WSL/MSYS2 runtime paths removed. It uses an isolated test profile and keeps logs and screenshots in the Windows temporary folder.
+
+For the Linux graphical smoke test:
+
 ```bash
 QUIET_SMOKE_CONFIG="$(mktemp -d)" ./build/pomodoro --smoke-test
 ```
@@ -207,6 +237,8 @@ Run this from the project root within a graphical session. The smoke test may ge
 
 The app includes [Silkscreen](https://github.com/googlefonts/silkscreen) by the Silkscreen Project Authors, licensed under the **SIL Open Font License 1.1**. The bundled font and its license are located at `assets/Silkscreen-Regular.ttf` and `assets/Silkscreen-OFL.txt`.
 
+The app also includes [DejaVu Sans Mono](https://dejavu-fonts.github.io/) for readable task text across platforms. Its Bitstream Vera license and DejaVu public-domain notice are included in `assets/DejaVu-LICENSE.txt`.
+
 ## License
 
-No license for the application source code is specified in the provided project documentation. Add a root `LICENSE` file if you intend to publish the source under an explicit license. The bundled Silkscreen font retains its separate SIL Open Font License.
+No license for the application source code is specified in the provided project documentation. Add a root `LICENSE` file if you intend to publish the source under an explicit license. The bundled fonts retain their separate licenses listed above.

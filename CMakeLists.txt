@@ -18,6 +18,7 @@ add_custom_command(OUTPUT "${APP_RESOURCES}"
   COMMAND "${GLIB_COMPILE_RESOURCES}" "${CMAKE_CURRENT_SOURCE_DIR}/assets/resources.xml"
     --sourcedir=${CMAKE_CURRENT_SOURCE_DIR}/assets --generate-source --target=${APP_RESOURCES}
   DEPENDS assets/resources.xml assets/style.css assets/Silkscreen-Regular.ttf assets/Silkscreen-OFL.txt
+    assets/DejaVuSansMono.ttf assets/DejaVu-LICENSE.txt
   VERBATIM)
 
 add_library(pomodoro_audio STATIC src/audio.cpp)
@@ -37,6 +38,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     PATTERN packages EXCLUDE)
 endif()
 if(WIN32)
+  pkg_check_modules(PANGO REQUIRED IMPORTED_TARGET pangocairo>=1.56)
+  target_link_libraries(pomodoro PRIVATE PkgConfig::PANGO)
+  enable_language(RC)
+  target_sources(pomodoro PRIVATE assets/windows.rc)
+  target_include_directories(pomodoro PRIVATE assets)
   target_link_libraries(pomodoro_audio PUBLIC winmm)
   target_link_libraries(pomodoro PRIVATE gdi32)
   set_target_properties(pomodoro PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -102,12 +108,15 @@ if(BUILD_TESTING)
     set_tests_properties(audio_wsl_path PROPERTIES TIMEOUT 10 ENVIRONMENT
       "PATH=$<TARGET_FILE_DIR:fake_windows_audio>:$ENV{PATH};WSL_DISTRO_NAME=Pomodoro-Audio-Test;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:fake_pulse>;PULSE_SERVER=unix:/tmp/pomodoro-pulse-test;TMPDIR=${AUDIO_PATH_TEST_DIR}")
   endif()
-  if(UNIX)
-    add_executable(assets_tests tests/assets_tests.cpp src/font.cpp "${APP_RESOURCES}")
-    target_include_directories(assets_tests PRIVATE src)
-    target_link_libraries(assets_tests PRIVATE PkgConfig::GTK3 PkgConfig::FONTCONFIG)
-    add_test(NAME assets COMMAND assets_tests)
+  add_executable(assets_tests tests/assets_tests.cpp src/font.cpp "${APP_RESOURCES}")
+  target_include_directories(assets_tests PRIVATE src)
+  target_link_libraries(assets_tests PRIVATE PkgConfig::GTK3)
+  if(WIN32)
+    target_link_libraries(assets_tests PRIVATE PkgConfig::PANGO)
+  else()
+    target_link_libraries(assets_tests PRIVATE PkgConfig::FONTCONFIG)
   endif()
+  add_test(NAME assets COMMAND assets_tests)
 endif()
 
 install(TARGETS pomodoro RUNTIME DESTINATION bin)

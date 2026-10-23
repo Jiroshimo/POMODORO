@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace quiet {
 // The font is private to this process. It is never installed system-wide.
@@ -11,7 +12,6 @@ public:
     PixelFont& operator=(const PixelFont&) = delete;
 private:
     std::string directory_;
-    std::string path_;
-    bool registered_ = false;
+    std::vector<std::string> paths_;
 };
 } // namespace quiet

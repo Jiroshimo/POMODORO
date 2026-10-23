@@ -4,5 +4,7 @@
     <file>style.css</file>
     <file>Silkscreen-Regular.ttf</file>
     <file>Silkscreen-OFL.txt</file>
+    <file>DejaVuSansMono.ttf</file>
+    <file>DejaVu-LICENSE.txt</file>
   </gresource>
 </gresources>
