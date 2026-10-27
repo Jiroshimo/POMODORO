@@ -14,6 +14,10 @@ Focus on your work, organize tasks by session, and keep your timer visible while
 
 </div>
 
+## VIDEO DEMONSTRATION
+
+https://drive.google.com/file/d/1h8VTVNvbJXTdpFTheSA7IDBuU19_nESI/view?usp=sharing
+
 ## Overview
 
 Stash is a lightweight productivity app with a distraction-free black interface, a pixel-style countdown, Inter text, and checklists for individual focus sessions. An unlabeled contribution calendar keeps a daily history of your completed focus time.
@@ -48,7 +52,7 @@ You can generate updated screenshots using the desktop smoke test described unde
 | Language                 | C++17                                                   |
 | Desktop UI               | GTK 3                                                   |
 | Build system             | CMake 3.16+                                             |
-| Styling                  | CSS, bundled Silkscreen and Inter fonts                  |
+| Styling                  | CSS, bundled Silkscreen and Inter fonts                 |
 | Audio                    | PulseAudio / ALSA (Linux), WinMM (Windows), WSL interop |
 | Supported source targets | Linux, WSLg, Windows via MSYS2                          |
 
